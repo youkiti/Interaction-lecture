@@ -146,3 +146,4 @@ marg$subgroup <- c(0,0,1,1)
 ggplot(marg, aes(x=as.factor(treatment), y=margin, colour=as.factor(subgroup))) + 
   geom_point() + 
   geom_errorbar(aes(ymin=lower, ymax=upper), width=.05)
+

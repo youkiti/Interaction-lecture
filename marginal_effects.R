@@ -55,13 +55,13 @@ tidy(fit, exponentiate = TRUE, conf.int = TRUE)
 fit_sub <- glm(death ~ treatment*subgroup + age,
                family = binomial(link = "logit"),
                data = data)
-tidy(fit, exponentiate = FALSE, conf.int = TRUE)
+tidy(fit_sub, exponentiate = FALSE, conf.int = TRUE)
 tidy(fit_sub, exponentiate = TRUE, conf.int = TRUE)
 
 fit_sub2 <- glm(death ~ treatment*age + subgroup,
                 family = binomial(link = "logit"),
                 data = data)
-tidy(fit, exponentiate = FALSE, conf.int = TRUE)
+tidy(fit_sub2, exponentiate = FALSE, conf.int = TRUE)
 tidy(fit_sub2, exponentiate = TRUE, conf.int = TRUE)
 
 
@@ -147,6 +147,48 @@ ggplot(marg, aes(x=as.factor(treatment), y=margin, colour=as.factor(subgroup))) 
   geom_point() + 
   geom_errorbar(aes(ymin=lower, ymax=upper), width=.05) 
 
-ggplot(marg, aes(x=as.factor(treatment), y=margin, fill=as.factor(subgroup))) + 
-  geom_bar(position="dodge", stat="identity") +
-  geom_errorbar(aes(ymin=lower, ymax=upper), position=position_dodge(0.9), width=.05)
+interaction <- margins(fit_sub,
+                       variables = "treatment",
+                       at=list(treatment = c(0,1),
+                              subgroup = c(0,1)))
+summary(interaction)
+
+## Second difference
+
+df <- as.data.frame(summary(interaction))
+vc <- vcov(interaction)
+diff <- df$AME[2] - df$AME[1]
+se <- sqrt((vc[2,2] + vc[4,4]) - 2*vc[4,2])
+zstat <- diff/se
+pval <- 2*pnorm(-abs(zstat))
+h <- as.data.frame(list(Estimate=diff, SE=se, Z_score=zstat, Two_sided_pvalue=pval))
+h
+# Another example ---------------------------------------------------------
+
+marg2 <- marg(fit_sub2, var_interest="treatment", at=list(age = seq(60,80,2),
+                                                          treatment = c(0,1)))
+marg2 <- data.frame(matrix(unlist(marg2), nrow=22, byrow=T))
+colnames(marg2) <- c("label", "margin", "se", "z", "pvalue", "lower", "upper")
+marg2$treatment <- c(rep(0, 11), rep(1, 11))
+marg2$age <- c(seq(60,80,2), seq(60,80,2))
+
+marg2 %>% glimpse()
+marg2 <- marg2 %>% 
+  mutate(across(margin:upper, .fns = ~{as.numeric(.)}))
+
+ggplot(marg2, aes(x=age, y=margin, colour=as.factor(treatment))) + 
+  geom_point() + 
+  geom_line() + 
+  geom_ribbon(aes(ymin=lower, ymax=upper), alpha=0, linetype=2) + 
+  scale_x_continuous(breaks=seq(60,80,2)) + 
+  theme(legend.title = element_blank(), panel.grid.minor=element_blank())
+
+interaction2 <- margins(fit_sub2, variables="treatment", at=list(subgroup=c(0, 1)))
+df <- as.data.frame(summary(interaction2))
+vc <- vcov(interaction2)
+diff <- diff(df$AME)
+se <- sqrt(sum(diag(vc)) - 2*vc[1,2])
+zstat <- diff/se
+pval <- 2*pnorm(-abs(zstat))
+h <- as.data.frame(list(Estimate=diff, SE=se, Z_score=zstat, Two_sided_pvalue=pval))
+h
