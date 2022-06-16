@@ -23,10 +23,10 @@ package.check <- lapply(packages, FUN = function(x){
   }
 })
 
-use_git_config(user.name = "AkiShiroshita", user.email = "akihirokun8@gmail.com")
+#use_git_config(user.name = "AkiShiroshita", user.email = "akihirokun8@gmail.com")
 #git_sitrep()
 #create_github_token()
-gitcreds::gitcreds_set()
+#gitcreds::gitcreds_set()
 
 # Data preparation --------------------------------------------------------
 
