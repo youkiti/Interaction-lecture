@@ -23,10 +23,10 @@ package.check <- lapply(packages, FUN = function(x){
   }
 })
 
-#use_git_config(user.name = "AkiShiroshita", user.email = "akihirokun8@gmail.com")
+use_git_config(user.name = "AkiShiroshita", user.email = "akihirokun8@gmail.com")
 #git_sitrep()
 #create_github_token()
-#gitcreds::gitcreds_set()
+gitcreds::gitcreds_set()
 
 # Data preparation --------------------------------------------------------
 
@@ -183,7 +183,9 @@ ggplot(marg2, aes(x=age, y=margin, colour=as.factor(treatment))) +
   scale_x_continuous(breaks=seq(60,80,2)) + 
   theme(legend.title = element_blank(), panel.grid.minor=element_blank())
 
-interaction2 <- margins(fit_sub2, variables="treatment", at=list(subgroup=c(0, 1)))
+interaction2 <- margins(fit_sub2, variables="treatment", at=list(age = seq(60,80,2)))
+summary(interaction2)
+
 df <- as.data.frame(summary(interaction2))
 vc <- vcov(interaction2)
 diff <- diff(df$AME)
