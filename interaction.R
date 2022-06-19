@@ -37,7 +37,7 @@ data <- tibble(
   subgroup = rbinom(n, 1, .25),
   treatment = rbinom(n, 1, .5),
   age = round(70 + rnorm(n, 0, 5)),
-  death = rbinom(n,1, expit(.01-.2*treatment+.08*subgroup+.01*age))
+  death = rbinom(n,1, expit(-7+log(1.4)*treatment+log(1.2)*subgroup+log(1.1)*age))
 )
 
 # Logistic regression -----------------------------------------------------
@@ -45,6 +45,7 @@ data <- tibble(
 fit <- glm(death ~ treatment, 
            family = binomial(link = "logit"),
            data = data)
+summary(fit)
 
 prob <- predict(fit, type = "response")
 pred.class <- ifelse(prob > 0.7, "positive", "negative") # just for demo

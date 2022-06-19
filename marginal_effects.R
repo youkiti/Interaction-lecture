@@ -38,26 +38,49 @@ data <- tibble(
   subgroup = rbinom(n, 1, .25),
   treatment = rbinom(n, 1, .5),
   age = round(70 + rnorm(n, 0, 5)),
-  death = rbinom(n,1, expit(.01-.2*treatment+.08*subgroup+.01*age))
+  death = rbinom(n,1, expit(-7+log(1.4)*treatment + log(2)*treament*subgroup+log(1.2)*subgroup+log(1.1)*age))
 )
 
 data %>% glimpse()
 
 # Logistic regression -----------------------------------------------------
 
-fit <- glm(death ~ treatment + subgroup + age, 
+## univariate
+fit1 <- glm(death ~ treatment, 
+           family = binomial(link = "logit"),
+           data = data)
+tidy(fit1, exponentiate = FALSE, conf.int = TRUE)
+tidy(fit1, exponentiate = TRUE, conf.int = TRUE)
+
+## supplementary figure
+fit0 <- glm(death ~ age, 
+            family = binomial(link = "logit"),
+            data = data)
+
+newdata <- data.frame(age=seq(min(data$age), max(data$age),len=500))
+newdata$pred = predict(fit0, newdata, type="response")
+
+plot(log(pred/(1-pred)) ~ age, data = newdata)
+
+plot(death ~ age, data = data, col="red")
+lines(pred ~ age, newdata, lwd = 2)
+
+## multivariate
+fit2 <- glm(death ~ treatment + subgroup + age, 
            family = binomial(link = "logit"),
            data = data)
 
-tidy(fit, exponentiate = FALSE, conf.int = TRUE)
-tidy(fit, exponentiate = TRUE, conf.int = TRUE)
+tidy(fit2, exponentiate = FALSE, conf.int = TRUE)
+tidy(fit2, exponentiate = TRUE, conf.int = TRUE)
 
+## interaction term (categorical)
 fit_sub <- glm(death ~ treatment*subgroup + age,
                family = binomial(link = "logit"),
                data = data)
 tidy(fit_sub, exponentiate = FALSE, conf.int = TRUE)
 tidy(fit_sub, exponentiate = TRUE, conf.int = TRUE)
 
+## interaction term (continuous)
 fit_sub2 <- glm(death ~ treatment*age + subgroup,
                 family = binomial(link = "logit"),
                 data = data)
@@ -69,11 +92,11 @@ tidy(fit_sub2, exponentiate = TRUE, conf.int = TRUE)
 
 updated_data <- data.frame(subgroup = rep(mean(data$subgroup), 2),
                            age = rep(mean(data$age), 2),
-                           treatment = c(0,1))
+                           treatment = c(0, 1))
 
 updated_data %>% glimpse()
 
-updated_data <- cbind(updated_data, predict(fit,
+updated_data <- cbind(updated_data, predict(fit2,
                                             newdata = updated_data,
                                             type = "response",
                                             se.fit = TRUE))
@@ -97,12 +120,12 @@ ggplot(updated_data, aes(x = as.factor(treatment), y = probability)) +
         axis.title = element_text(family = "sans", size=9),
         plot.caption = element_text(family = "sans", size=5))
 
-## Average marginal effect
+## Average marginal effect (AME)
 
 ame <- margins(fit_sub, variables = "treatment")
 summary(ame)
 
-## Marginal effects at the mean
+## Marginal effects at the mean (MEM)
 
 mem <- margins(fit_sub,
                at=list(subgroup=mean(as.numeric(data$treatment)),
@@ -111,7 +134,7 @@ mem <- margins(fit_sub,
 
 summary(mem)
 
-## plots
+## Plots
 
 marg <- as.data.frame(summary(margins(fit_sub, at=list(age=seq(60,80,2)), variables="treatment")))
 
@@ -123,11 +146,9 @@ marg <- marg %>%
 ggplot(marg, aes(x=age, y=AME)) + 
   geom_point() + 
   geom_line() + 
-  geom_ribbon(aes(ymin=lower, ymax=upper), alpha=0, col="black", lty=2) + 
-  scale_y_continuous(limits=c(0,.1), breaks=seq(0,.1,.01)) + 
-  scale_x_continuous(limits=c(60,80), breaks=seq(60,80,2))
+  geom_ribbon(aes(ymin=lower, ymax=upper), alpha=0, col="black", lty=2)
 
-# Effect modification -----------------------------------------------------
+# Interaction (categorical) -----------------------------------------------------
 
 marg <- marg(fit_sub,
              var_interest="treatment",
@@ -163,7 +184,8 @@ zstat <- diff/se
 pval <- 2*pnorm(-abs(zstat))
 h <- as.data.frame(list(Estimate=diff, SE=se, Z_score=zstat, Two_sided_pvalue=pval))
 h
-# Another example ---------------------------------------------------------
+
+# Interaction (Continuous) ---------------------------------------------------------
 
 marg2 <- marg(fit_sub2, var_interest="treatment", at=list(age = seq(60,80,2),
                                                           treatment = c(0,1)))
@@ -194,3 +216,39 @@ zstat <- diff/se
 pval <- 2*pnorm(-abs(zstat))
 h <- as.data.frame(list(Estimate=diff, SE=se, Z_score=zstat, Two_sided_pvalue=pval))
 h
+
+# causal inference
+
+data_non_treatment <- data %>% 
+  mutate(treatment = 0)
+data_treatment <- data %>% 
+  mutate(treatment = 1)
+
+fit1
+
+Qbar0W <- predict(fit1, newdata = data_non_treatment,
+                  type = "response",
+                  family = binomial())
+Qbar1W <- predict(fit1, newdata = data_treatment,
+                  type = "response",
+                  family = binomial())
+psi_nG0 <- mean(Qbar0W)
+psi_nG1 <- mean(Qbar1W)
+
+gamma_nG <- psi_nG1 - psi_nG0
+
+M <- 1000
+gammaVex_nG <- replicate(M, {
+  ind <- sample(1:nrow(data), replace = TRUE)
+  fit <- glm(data$death[ind] ~ treatment,
+             data = data[ind,],
+             family = binomial())
+  Qbar0W <- predict(fit, newdata = data_non_treatment[ind, ])
+  Qbar1W <- predict(fit, newdata = data_treatment[ind, ])
+  psi_nG0 <- mean(Qbar0W)
+  psi_nG1 <- mean(Qbar1W)
+  gamma_nG <- psi_nG1 - psi_nG0
+  return(gamma_nG)
+})
+
+exp(quantile(gamma_nG, c(0.025, 0.975)))
