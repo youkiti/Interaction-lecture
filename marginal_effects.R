@@ -23,10 +23,6 @@ package.check <- lapply(packages, FUN = function(x){
   }
 })
 
-#use_git_config(user.name = "AkiShiroshita", user.email = "akihirokun8@gmail.com")
-#git_sitrep()
-#create_github_token()
-#gitcreds::gitcreds_set()
 
 # Data preparation --------------------------------------------------------
 
@@ -38,7 +34,7 @@ data <- tibble(
   subgroup = rbinom(n, 1, .25),
   treatment = rbinom(n, 1, .5),
   age = round(70 + rnorm(n, 0, 5)),
-  death = rbinom(n,1, expit(-7+log(1.4)*treatment + log(2)*treament*subgroup+log(1.2)*subgroup+log(1.1)*age))
+  death = rbinom(n,1, expit(-7+log(1.4)*treatment + log(2)*treatment*subgroup+log(1.2)*subgroup+log(1.1)*age))
 )
 
 data %>% glimpse()
